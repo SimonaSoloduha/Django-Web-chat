@@ -1,0 +1,161 @@
+{% extends 'main.html'%}
+{% load static %}
+
+<body>
+
+{% block content %}
+<section class="lobby-section">
+    <div class="row justify-content-center">
+        <div class="card" id="chat-lobby"
+             onmouseover="seeMassage()">
+            <div class="card-header ">
+                <p class="lobby-name">{{chat.name}}</p>
+                <p class="count-users" id="count-users-active">Участников: {{ chat_users|length }}</p>
+                <a href="{% url 'chats' %}" class="img-go-to-chats"><img
+                        src="{% static 'styles/media/door_enter_exit.png' %}" alt="exit"></a>
+            </div>
+            <div class="card-body" id="chat-messages-block" data-mdb-perfect-scrollbar="true">
+                {% if old_messages %}
+                {% for messages in old_messages %}
+                {% if messages.user.username != request.user.username %}
+                <div class="justify-content-start interlocutor-message">
+                    <div class="interlocutor-message-tip2"><img src="{% static 'styles/media/top-vector-tip2.png' %}"
+                                                                alt="message-tip"></div>
+                    <div class="justify-content-start interlocutor-message-name">{{messages.user.username}}</div>
+                    <div class="justify-content-start interlocutor-message-text">{{messages.text}}</div>
+                    <div class="rounded-3 message-time message-text-color">
+                        {{messages.created_at|date:'d F H:m'}}
+                    </div>
+                </div>
+                {% else %}
+                <div class="justify-content-end my-message">
+                    <div class="my-message-tip"><img src="{% static 'styles/media/top-vector-tip.png' %}"
+                                                     alt="message-tip"></div>
+                    <div class="justify-content-start text-white message-text">{{messages.text}}</div>
+                    <div class="rounded-3 text-white message-time">
+                        {{messages.created_at|date:'d F H:m'}}
+                        <div class="send-ok-{{messages.id}}"><img
+                                src="{% static 'styles/media/check.png' transparent 10% %}"
+                                alt="send-ok"></div>
+                        {% if messages.message_see == True %}
+                        <div class="see-ok"><img src="{% static 'styles/media/check.png' %}" alt="see-ok"></div>
+                        {% endif %}
+                    </div>
+
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% endif %}
+
+                <div id="chat-messages" style="height: 80px"></div>
+
+
+            </div>
+            <div id="message-form">
+                <form name="message" id="form">
+                    <input type="text" class="form-control message-input" name="message" placeholder="Сообщение..."/>
+                    <button type="submit" class="send-message-btn"></button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{ request.user.username|json_script:"auth_user_name" }}
+    {{ request.user.id|json_script:"auth_user_id" }}
+    {{ chat.id|json_script:"this_chat_id"}}
+    {{ chat_users|json_script:"chat_users"}}
+
+
+</section>
+
+<script type="text/javascript">
+
+        let url = `ws://${window.location.host}/ws/socket-server/`
+
+        const chatSocket = new WebSocket(url)
+
+        $("#chat-messages-block").scrollTop($("#chat-messages-block")[0].scrollHeight);
+
+        chatSocket.onmessage = function(e){
+            let data = JSON.parse(e.data)
+
+            if(data.type === 'chat'){
+                const this_chat_id = JSON.parse(document.getElementById('this_chat_id').textContent);
+
+                if(data.chat_id === this_chat_id){
+
+                    let messages = document.getElementById('chat-messages')
+                    const auth_user_name = JSON.parse(document.getElementById('auth_user_name').textContent);
+                    if(data.sender === auth_user_name){
+                                    messages.insertAdjacentHTML('beforebegin',
+                            `<div class="justify-content-end my-message">
+                            <div class="my-message-tip" ><img src="{% static 'styles/media/top-vector-tip.png' %}" alt="message-tip"></div>
+                            <div class="d-block text-white message-text">${data.message}</div>
+                            <div class="rounded-3 text-white message-time" id=message-time>
+                                ${data.user_time}
+                                <div class="send-ok" id="send-ok-${data.new_massage_id}" ><img src="{% static 'styles/media/check.png' transparent 10% %}" alt="send-ok"></div>
+                            </div>`
+                            )
+                    } else {
+                            messages.insertAdjacentHTML('beforebegin',
+                                    `<div class="justify-content-start interlocutor-message">
+                                    <div class="interlocutor-message-tip2" ><img src="{% static 'styles/media/top-vector-tip2.png' %}" alt="message-tip"></div>
+                                    <div class="justify-content-start interlocutor-message-name">${data.user_name}</div>
+                                    <div class="justify-content-start interlocutor-message-text">${data.message}</div>
+                                    <div class="rounded-3 message-time message-text-color">
+                                            ${data.user_time}</div>
+                                </div>`
+                                    )
+                            }
+                    if(data.add_user != 0){
+                        p = document.getElementById('count-users-active');
+                        p.innerHTML = data.add_user;
+                    }
+                    $("#chat-messages-block").scrollTop($("#chat-messages-block")[0].scrollHeight);
+                }
+
+
+            } else if(data.type === 'see_messages') {
+                 const auth_user_name = JSON.parse(document.getElementById('auth_user_name').textContent);
+
+                 var id = "send-ok-" + data.see_messages_id;
+                 var el = document.getElementById(id);
+
+                 el.insertAdjacentHTML('afterend',
+                        `<div class="see-ok" ><img src="{% static 'styles/media/check.png' %}" alt="see-ok">
+                        </div>`
+                 )
+            }
+        }
+
+        let form = document.getElementById('form')
+        form.addEventListener('submit', (e)=> {
+            e.preventDefault()
+            let message = e.target.message.value;
+            var chat = JSON.parse("{{chat.id|escapejs}}");
+            var chat_users = JSON.parse("{{chat_users|escapejs}}");
+
+            chatSocket.send(JSON.stringify({
+                'message':message,
+                'chat': chat,
+                'chat_users': chat_users,
+            }))
+            form.reset()
+        })
+
+        function seeMassage() {
+                var chat = JSON.parse("{{chat.id|escapejs}}");
+                const auth_user_id = JSON.parse(document.getElementById('auth_user_id').textContent);
+
+                chatSocket.send(JSON.stringify({
+                    'see_message': 'see',
+                    'auth_user_id': auth_user_id,
+                    'chat': chat,
+                }))
+        }
+
+
+
+</script>
+{% endblock %}}
+
+</body>

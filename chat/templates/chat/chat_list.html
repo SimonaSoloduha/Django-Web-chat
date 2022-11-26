@@ -1,0 +1,43 @@
+{% extends 'main.html'%}
+
+<body>
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="card" id="chat-list">
+        <div class="card-header ">Выберите/coздайте чат</div>
+        <div class="card-body chat-body">
+            <select class="select-chat" id="chatSelect">
+                {% if all_chats %}
+                {% for chat in all_chats %}
+                <option value=" {{chat.id}} ">{{chat.name}}</option>
+                {% endfor %}
+                {% else %}
+                <option>Создайте первый чат</option>
+                {% endif %}
+            </select>
+            <button class="select-btn" type="button"
+                    onclick="getURL();">
+            </button>
+
+            <form method="POST" class="text-center">
+                {% csrf_token %}
+                <input type="text" name="name" class="chat-input" required id="id_name"
+                       placeholder="Введите название чата">
+                <input type="submit" class="my-button chat-go" value="Создать"/>
+            </form>
+
+            <script>
+                function getURL() {
+                  var select = document.getElementById("chatSelect");
+                  var value = select.value;
+                  window.location.href = value;
+                }
+
+
+            </script>
+        </div>
+    </div>
+</div>
+{% endblock %}
+</body>
